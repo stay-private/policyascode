@@ -1,0 +1,198 @@
+{
+  "schemas": {
+    "memories": {
+      "type": "object",
+      "properties": {
+        "memories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "code",
+                  "llm"
+                ]
+              },
+              "rule": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "quote": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "quote"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type",
+              "rule",
+              "priority",
+              "rationale",
+              "sources"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "memories"
+      ],
+      "additionalProperties": false
+    },
+    "consolidation": {
+      "type": "object",
+      "properties": {
+        "deletes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "edits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "update": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "code",
+                      "llm"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "update",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "merges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 2
+              },
+              "update": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "code",
+                      "llm"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "rule",
+                  "priority",
+                  "rationale"
+                ],
+                "additionalProperties": false
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "update",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "deletes",
+        "edits",
+        "merges"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
