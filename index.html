@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MemLearn — Atomic Memories from Documents</title>
+  <title>Policy as Code — Atomic Rules from Policy Documents</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUiIGZpbGw9IiMyNTYzZWIiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJtMTYgNyAyIDcgNyAyLTcgMi0yIDctMi03LTctMiA3LTJaIi8+PC9zdmc+">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -37,7 +37,7 @@
 <body style="margin-bottom: 50vh">
   <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
     <div class="container-fluid">
-      <a class="navbar-brand" href=".">MemLearn</a>
+      <a class="navbar-brand" href=".">Policy as Code</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -57,15 +57,15 @@
   </nav>
 
   <div class="container-fluid">
-    <h1 class="display-1 my-4 text-center">MemLearn</h1>
-    <h2 class="display-6 text-center">Extract and consolidate atomic memories from documents</h2>
+    <h1 class="display-1 my-4 text-center">Policy as Code</h1>
+    <h2 class="display-6 text-center">Extract and consolidate atomic rules from policy documents</h2>
     <div class="mx-auto my-3 narrative">
-      <p>Upload .txt, .md or .pdf files. MemLearn streams LLM responses to extract atomic, testable memories from each document, and consolidates them when the list grows. Everything runs client‑side and persists to localStorage.</p>
+      <p>Upload .txt, .md or .pdf files. Policy as Code streams LLM responses to extract atomic, testable rules from each policy document, and consolidates them when the list grows. Everything runs client‑side and persists to localStorage.</p>
     </div>
   </div>
 
   <div class="container">
-    <form id="memlearn-settings" class="narrative mx-auto">
+    <form id="policyascode-settings" class="narrative mx-auto">
       <details class="my-4 card rounded-3 shadow-sm">
         <summary class="h5 p-4 m-0">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-gear" viewBox="0 0 16 16">
@@ -76,6 +76,10 @@
         </summary>
         <div class="p-4 pt-0">
           <div class="row g-3">
+            <div class="col-sm-3">
+              <label class="form-label">API Keys</label>
+              <button type="button" class="btn btn-outline-secondary d-block w-100" id="openai-config-btn">Config</button>
+            </div>
             <div class="col-sm-6">
               <label class="form-label">Model</label>
               <input id="model" type="text" class="form-control" value="gpt-4.1-mini" list="model-list">
@@ -87,28 +91,22 @@
               </datalist>
             </div>
             <div class="col-sm-3">
-              <label class="form-label">Batch size</label>
-              <input id="batch-size" type="number" class="form-control" value="5" min="1" max="16">
-            </div>
-            <div class="col-sm-3">
-              <label class="form-label">Consolidate at</label>
-              <input id="consolidate-threshold" type="number" class="form-control" value="30" min="5" step="5">
+              <label class="form-label">Storage</label>
+              <button type="button" class="btn btn-outline-danger d-block w-100" id="clear-storage-btn">Clear all</button>
             </div>
           </div>
           <div class="mt-3 d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" id="openai-config-btn">Configure OpenAI</button>
-            <button type="button" class="btn btn-outline-danger" id="clear-storage-btn">Clear memories</button>
           </div>
           <div class="mt-4">
-            <label for="memlearn-extraction" class="form-label fw-bold">Extraction Prompt</label>
-            <textarea id="memlearn-extraction" class="form-control font-monospace" rows="6">Extract atomic, testable memories from ONE document. Keep each memory minimal and useful.
-For type="code": return a JS function named check(doc) → { pass, reason }.
-For type="llm": write a concise natural-language check instruction.
+            <label for="policyascode-extraction" class="form-label fw-bold">Extraction Prompt</label>
+            <textarea id="policyascode-extraction" class="form-control font-monospace" rows="6">Extract atomic, testable rules from ONE policy document.
+Keep each rule minimal.
+Write for an LLM to apply it unambiguously.
 Always include concise rationale and quotes.</textarea>
           </div>
           <div class="mt-3">
-            <label for="memlearn-consolidation" class="form-label fw-bold">Consolidation Prompt</label>
-            <textarea id="memlearn-consolidation" class="form-control font-monospace" rows="5">Suggest deletes, merges to remove duplicates and generalize where appropriate.</textarea>
+            <label for="policyascode-consolidation" class="form-label fw-bold">Consolidation Prompt</label>
+            <textarea id="policyascode-consolidation" class="form-control font-monospace" rows="5">Suggest deletes and merges to remove duplicates and generalize rules where appropriate.</textarea>
           </div>
         </div>
       </details>
@@ -124,16 +122,16 @@ Always include concise rationale and quotes.</textarea>
       <div class="col-lg-6">
         <div class="card h-100">
           <div class="card-header d-flex align-items-center gap-2">
-            <strong>Memories</strong>
-            <span id="memory-count" class="badge text-bg-info ms-auto">0</span>
+            <strong>Rules</strong>
+            <span id="rule-count" class="badge text-bg-info ms-auto">0</span>
           </div>
-          <div id="memory-list" class="card-body" style="max-height: 80vh; overflow: auto;"></div>
+          <div id="rule-list" class="card-body" style="max-height: 80vh; overflow: auto;"></div>
         </div>
       </div>
       <div class="col-lg-6">
         <div class="card h-100">
           <div class="card-header d-flex align-items-center gap-2">
-            <strong>Learning Diary</strong>
+            <strong>Rule Log</strong>
           </div>
           <div id="learning-list" class="card-body" style="max-height: 80vh; overflow: auto;"></div>
         </div>

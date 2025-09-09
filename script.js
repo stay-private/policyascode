@@ -4,7 +4,7 @@ import { parse } from "https://cdn.jsdelivr.net/npm/partial-json@0.1/+esm";
 import { openaiConfig } from "https://cdn.jsdelivr.net/npm/bootstrap-llm-provider@1";
 import { bootstrapAlert } from "https://cdn.jsdelivr.net/npm/bootstrap-alert@1";
 import saveform from "https://cdn.jsdelivr.net/npm/saveform@1.2";
-import { memoryCard, learningCard } from "./components.js";
+import { ruleCard, learningCard } from "./components.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 
@@ -17,17 +17,17 @@ const BASE_URLS = [
 
 // State
 const state = {
-  memIndex: 0,
-  memories: [], // { id, type, title, body, priority, rationale, sources: [{quote, file}] }
-  learnings: [], // { file, memories: [...] } or { edits: [...] }
+  ruleIndex: 0,
+  rules: [], // { id, type, title, body, priority, rationale, sources: [{quote, file}] }
+  learnings: [], // { file, rules: [...] } or { edits: [...] }
 };
 
-// Global memory lookup for efficient access by ID
-let memoryLookup = {};
+// Global rule lookup for efficient access by ID
+let ruleLookup = {};
 
-// Update memoryLookup when state.memories changes. Retain all memories for merge/delete reference.
-function updateMemoryLookup() {
-  state.memories.forEach((memory) => (memoryLookup[memory.id] = memory));
+// Update ruleLookup when state.rules changes. Retain all rules for merge/delete reference.
+function updateRuleLookup() {
+  state.rules.forEach((rule) => (ruleLookup[rule.id] = rule));
 }
 
 // Fetch configuration
@@ -36,21 +36,21 @@ const { schemas } = await fetch("./config.json").then((r) => r.json());
 // Save state to localStorage
 function saveState() {
   try {
-    localStorage.setItem("memlearn", JSON.stringify(state));
+    localStorage.setItem("policyascode", JSON.stringify(state));
   } catch (e) {
     console.warn("Failed to save state to localStorage:", e);
     bootstrapAlert({ title: "Could not save state", body: e, color: "warning" });
   }
 }
 
-// Load state from localStorage
+// Load state from localStorage (migrate from older MemLearn if present)
 function loadState() {
   try {
-    const saved = localStorage.getItem("memlearn");
+    const saved = localStorage.getItem("policyascode");
     if (saved) {
       const parsedState = JSON.parse(saved);
       Object.assign(state, parsedState);
-      updateMemoryLookup();
+      updateRuleLookup();
       // Redraw with loaded state
       redraw({});
     }
@@ -62,11 +62,11 @@ function loadState() {
 
 // Clear state and localStorage
 function clearState() {
-  state.memIndex = 0;
-  state.memories = [];
+  state.ruleIndex = 0;
+  state.rules = [];
   state.learnings = [];
-  memoryLookup = {};
-  localStorage.removeItem("memlearn");
+  ruleLookup = {};
+  localStorage.removeItem("policyascode");
   redraw({});
 }
 
@@ -78,25 +78,25 @@ buttonClick($("#btn-ingest"), async () => {
         : { type: "input_text", text: `# ${file.name}\n\n${await file.text()}` };
     const body = {
       model: $("#model").value,
-      instructions: $("#memlearn-extraction").value,
+      instructions: $("#policyascode-extraction").value,
       input: [{ role: "user", content: [content] }],
-      text: { format: { type: "json_schema", strict: true, name: "memories", schema: schemas.memories } },
+      text: { format: { type: "json_schema", strict: true, name: "rules", schema: schemas.rules } },
       stream: true,
     };
 
-    let memories;
+    let rules;
     for await (const { content } of streamOpenAI(body)) {
-      memories = parse(content)?.memories ?? [];
-      memories.forEach((memory, i) => {
-        memory.id = `mem-${state.memIndex + i}`;
-        for (const source of memory.sources ?? []) source.file = file.name;
+      rules = parse(content)?.rules ?? [];
+      rules.forEach((rule, i) => {
+        rule.id = `rule-${state.ruleIndex + i}`;
+        for (const source of rule.sources ?? []) source.file = file.name;
       });
-      redraw({ memories, file: file.name });
+      redraw({ rules, file: file.name });
     }
-    state.memories.push(...memories);
-    updateMemoryLookup(); // Update the global lookup
-    state.learnings.push({ file: file.name, memories });
-    state.memIndex += memories.length;
+    state.rules.push(...rules);
+    updateRuleLookup(); // Update the global lookup
+    state.learnings.push({ file: file.name, rules });
+    state.ruleIndex += rules.length;
     saveState(); // Persist state changes
   }
 });
@@ -106,8 +106,8 @@ buttonClick($("#btn-consolidate"), consolidate);
 async function consolidate() {
   const body = {
     model: $("#model").value,
-    instructions: $("#memlearn-consolidation").value,
-    input: [{ role: "user", content: JSON.stringify(state.memories) }],
+    instructions: $("#policyascode-consolidation").value,
+    input: [{ role: "user", content: JSON.stringify(state.rules) }],
     text: { format: { type: "json_schema", strict: true, name: "edits", schema: schemas.edits } },
     stream: true,
   };
@@ -127,32 +127,31 @@ async function consolidate() {
       if (edit.edit === "delete" || edit.edit === "merge") edit.ids.forEach((id) => deletes.add(id));
     });
 
-    // Remove memories that are being deleted or merged
-    state.memories = state.memories.filter((memory) => !deletes.has(memory.id));
+    // Remove rules that are being deleted or merged
+    state.rules = state.rules.filter((rule) => !deletes.has(rule.id));
 
-    // Add new merged memories
+    // Add new merged rules
     edits.forEach((edit) => {
       if (edit.edit === "merge") {
-        // Concatenate sources from all memories being merged
+        // Concatenate sources from all rules being merged
         const mergedSources = [];
         edit.ids.forEach((id) => {
-          if (memoryLookup[id] && memoryLookup[id].sources) mergedSources.push(...memoryLookup[id].sources);
+          if (ruleLookup[id] && ruleLookup[id].sources) mergedSources.push(...ruleLookup[id].sources);
         });
 
-        const newMemory = {
-          id: `mem-${state.memIndex++}`,
-          type: edit.type,
+        const newRule = {
+          id: `rule-${state.ruleIndex++}`,
           title: edit.title,
           body: edit.body,
           priority: edit.priority,
           rationale: edit.rationale,
           sources: mergedSources,
         };
-        state.memories.push(newMemory);
+        state.rules.push(newRule);
       }
     });
 
-    updateMemoryLookup();
+    updateRuleLookup();
     redraw({ edits });
     saveState(); // Persist state changes
   }
@@ -184,16 +183,16 @@ function fileToDataURL(f) {
   });
 }
 
-function redraw({ memories, edits, file }) {
-  const mem = [...state.memories, ...(memories || [])].reverse();
-  render(mem.map(memoryCard), $("#memory-list"));
-  $("#memory-count").textContent = mem.length;
+function redraw({ rules, edits, file }) {
+  const r = [...state.rules, ...(rules || [])].reverse();
+  render(r.map(ruleCard), $("#rule-list"));
+  $("#rule-count").textContent = r.length;
 
   const learnings = [...state.learnings];
-  if (file) learnings.push({ file, memories });
+  if (file) learnings.push({ file, rules });
   if (edits) learnings.push({ edits });
   render(
-    learnings.reverse().map((l) => learningCard(l, memoryLookup)),
+    learnings.reverse().map((l) => learningCard(l, ruleLookup)),
     $("#learning-list"),
   );
 }
@@ -215,15 +214,15 @@ function buttonClick(btn, handler) {
 // Configure OpenAI
 $("#openai-config-btn").addEventListener("click", () => openaiConfig({ defaultBaseUrls: BASE_URLS, show: true }));
 
-// Clear memories button
+// Clear rules button
 $("#clear-storage-btn").addEventListener("click", () => {
-  if (confirm("Are you sure you want to clear all memories? This action cannot be undone.")) {
+  if (confirm("Are you sure you want to clear all rules? This action cannot be undone.")) {
     clearState();
   }
 });
 
 // Persist inputs
-saveform("#memlearn-settings", { exclude: '[type="file"]' });
+saveform("#policyascode-settings", { exclude: '[type="file"]' });
 
 // Load saved state on initialization
 loadState();

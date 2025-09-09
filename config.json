@@ -1,14 +1,13 @@
 {
   "schemas": {
-    "memories": {
+    "rules": {
       "type": "object",
       "properties": {
-        "memories": {
+        "rules": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "type": { "type": "string", "enum": ["code", "llm"] },
               "title": { "type": "string", "description": "2-8 word summary of body" },
               "body": { "type": "string" },
               "priority": { "type": "string", "enum": ["low", "medium", "high"] },
@@ -23,12 +22,12 @@
                 }
               }
             },
-            "required": ["type", "title", "body", "priority", "rationale", "sources"],
+            "required": ["title", "body", "priority", "rationale", "sources"],
             "additionalProperties": false
           }
         }
       },
-      "required": ["memories"],
+      "required": ["rules"],
       "additionalProperties": false
     },
     "edits": {
@@ -53,7 +52,6 @@
                 "properties": {
                   "edit": { "type": "string", "const": "merge" },
                   "ids": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
-                  "type": { "type": "string", "enum": ["code", "llm"] },
                   "title": { "type": "string", "description": "2-8 word summary of body" },
                   "body": { "type": "string", "description": "Merge .body of merged items" },
                   "priority": {
@@ -63,7 +61,7 @@
                   "rationale": { "type": "string", "description": "Merge .rationale of merged items" },
                   "reason": { "type": "string", "description": "Explain reason for merging" }
                 },
-                "required": ["edit", "ids", "type", "title", "body", "priority", "rationale", "reason"],
+                "required": ["edit", "ids", "title", "body", "priority", "rationale", "reason"],
                 "additionalProperties": false
               }
             ]

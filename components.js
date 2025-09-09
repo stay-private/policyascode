@@ -1,13 +1,6 @@
 import { html } from "https://cdn.jsdelivr.net/npm/lit-html@3/+esm";
-import hljs from "https://cdn.jsdelivr.net/npm/highlight.js@11/+esm";
 
-export function memoryCard(m) {
-  const isCode = m.type === "code";
-  const opts = { language: "javascript" };
-  const bodyHtml = isCode
-    ? html`<pre class="hljs"><code class="language-javascript">${hljs.highlight(m.body || "", opts).value}</code></pre>`
-    : html`<div class="text-body">${m.body}</div>`;
-
+export function ruleCard(m) {
   return html`
     <details class="mb-3 card">
       <summary class="card-header d-flex justify-content-between align-items-start">
@@ -15,8 +8,7 @@ export function memoryCard(m) {
         <span class="badge priority-${m.priority} me-2 text-uppercase">${m.priority}</span>
       </summary>
       <div class="card-body">
-        <div class="mb-2">${bodyHtml}</div>
-        <div class="mb-2"><strong>Type:</strong> ${m.type}</div>
+        <div class="mb-2"><div class="text-body">${m.body}</div></div>
         <div class="mb-2"><strong>Rationale:</strong> ${m.rationale || ""}</div>
         <div class="mb-2">
           <strong>Sources:</strong>
@@ -31,8 +23,8 @@ export function memoryCard(m) {
   `;
 }
 
-export function learningCard(l, memoryLookup) {
-  return l.file ? learningFileCard(l) : learningEditCard(l, memoryLookup);
+export function learningCard(l, ruleLookup) {
+  return l.file ? learningFileCard(l) : learningEditCard(l, ruleLookup);
 }
 
 function learningFileCard(l) {
@@ -42,11 +34,11 @@ function learningFileCard(l) {
     <details class="mb-3 card">
       <summary class="card-header d-flex justify-content-between align-items-start">
         <strong>${l.file}</strong>
-        <span class="badge text-bg-info ms-auto">${l.memories?.length || 0}</span>
+        <span class="badge text-bg-info ms-auto">${l.rules?.length || 0}</span>
       </summary>
       <div class="card-body">
         <div class="accordion" id="${accordionId}">
-          ${(l.memories || []).map((memory, index) => {
+          ${(l.rules || []).map((rule, index) => {
             const collapseId = `${accordionId}-collapse-${index}`;
             const headingId = `${accordionId}-heading-${index}`;
 
@@ -61,7 +53,7 @@ function learningFileCard(l) {
                     aria-expanded="false"
                     aria-controls="${collapseId}"
                   >
-                    <strong>${memory.title}</strong>
+                    <strong>${rule.title}</strong>
                   </button>
                 </h2>
                 <div
@@ -73,15 +65,15 @@ function learningFileCard(l) {
                   <div class="accordion-body">
                     <div class="mb-2">
                       <strong>Rule:</strong>
-                      <div class="mt-1">${memory.body}</div>
+                      <div class="mt-1">${rule.body}</div>
                     </div>
                     <div class="mb-2">
                       <strong>Priority:</strong>
-                      <span class="badge priority-${memory.priority} text-uppercase">${memory.priority}</span>
+                      <span class="badge priority-${rule.priority} text-uppercase">${rule.priority}</span>
                     </div>
                     <div class="mb-0">
                       <strong>Rationale:</strong>
-                      <div class="mt-1">${memory.rationale || "No rationale provided"}</div>
+                      <div class="mt-1">${rule.rationale || "No rationale provided"}</div>
                     </div>
                   </div>
                 </div>
@@ -94,7 +86,7 @@ function learningFileCard(l) {
   `;
 }
 
-function learningEditCard(l, memoryLookup) {
+function learningEditCard(l, ruleLookup) {
   const accordionId = `accordion-edits-${Date.now()}`;
 
   return html`
@@ -132,7 +124,7 @@ function learningEditCard(l, memoryLookup) {
                   <div class="accordion-body">
                     <ol>
                       ${(edit.ids ?? []).map((id) =>
-                        memoryLookup[id] ? html`<li>${memoryLookup[id].title}</li>` : html`<li>Unknown (${id})</li>`,
+                        ruleLookup[id] ? html`<li>${ruleLookup[id].title}</li>` : html`<li>Unknown (${id})</li>`,
                       )}
                     </ol>
                     <div class="mb-2">${edit.reason}</div>
