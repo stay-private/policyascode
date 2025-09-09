@@ -4,9 +4,14 @@ import { parse } from "https://cdn.jsdelivr.net/npm/partial-json@0.1/+esm";
 import { openaiConfig } from "https://cdn.jsdelivr.net/npm/bootstrap-llm-provider@1";
 import { bootstrapAlert } from "https://cdn.jsdelivr.net/npm/bootstrap-alert@1";
 import saveform from "https://cdn.jsdelivr.net/npm/saveform@1.2";
-import { ruleCard, learningCard } from "./components.js";
+import { ruleCard, learningCard, editRuleModal } from "./components.js";
 
 const $ = (s, el = document) => el.querySelector(s);
+function on(el, event, selector, handler) {
+  el.addEventListener(event, (e) => {
+    if (e.target.closest(selector)) handler(e);
+  });
+}
 
 const BASE_URLS = [
   "https://api.openai.com/v1",
@@ -223,6 +228,64 @@ $("#clear-storage-btn").addEventListener("click", () => {
 
 // Persist inputs
 saveform("#policyascode-settings", { exclude: '[type="file"]' });
+
+// Delete rule functionality
+on(document, "click", ".delete-rule-btn", (e) => {
+  const ruleId = e.target.closest(".delete-rule-btn").dataset.ruleId;
+  const rule = ruleLookup[ruleId];
+
+  if (rule && confirm(`Are you sure you want to delete the rule "${rule.title}"?`)) {
+    state.rules = state.rules.filter((r) => r.id !== ruleId);
+    delete ruleLookup[ruleId];
+    redraw({});
+    saveState();
+    bootstrapAlert({ title: "Rule deleted", body: `"${rule.title}" has been removed.`, color: "success" });
+  }
+});
+
+// Edit rule functionality
+let currentEditingRuleId = null;
+
+on(document, "click", ".edit-rule-btn", (e) => {
+  const ruleId = e.target.closest(".edit-rule-btn").dataset.ruleId;
+  const rule = ruleLookup[ruleId];
+
+  if (rule) {
+    currentEditingRuleId = ruleId;
+    render(editRuleModal(rule), $("#modal-container"));
+    new bootstrap.Modal($("#editRuleModal")).show();
+  }
+});
+
+// Save edited rule
+on(document, "click", "#saveRuleBtn", (e) => {
+  const form = $("#editRuleForm");
+  if (form.checkValidity() && currentEditingRuleId) {
+    const rule = ruleLookup[currentEditingRuleId];
+
+    // Update rule with form values
+    rule.title = $("#editRuleTitle").value;
+    rule.body = $("#editRuleBody").value;
+    rule.rationale = $("#editRuleRationale").value;
+    rule.priority = $("#editRulePriority").value;
+
+    // Update the rule in state.rules
+    const ruleIndex = state.rules.findIndex((r) => r.id === currentEditingRuleId);
+    if (ruleIndex !== -1) state.rules[ruleIndex] = rule;
+
+    // Close modal
+    bootstrap.Modal.getInstance($("#editRuleModal")).hide();
+
+    // Redraw and save
+    redraw({});
+    saveState();
+
+    bootstrapAlert({ title: "Rule updated", body: `"${rule.title}" has been updated.`, color: "success" });
+    currentEditingRuleId = null;
+  } else {
+    form.classList.add("was-validated");
+  }
+});
 
 // Load saved state on initialization
 loadState();

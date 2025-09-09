@@ -5,7 +5,27 @@ export function ruleCard(m) {
     <details class="mb-3 card">
       <summary class="card-header d-flex justify-content-between align-items-start">
         <strong>${m.title}</strong>
-        <span class="badge priority-${m.priority} me-2 text-uppercase">${m.priority}</span>
+        <div class="d-flex align-items-center gap-1">
+          <span class="badge priority-${m.priority} me-2 text-uppercase">${m.priority}</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary p-1 edit-rule-btn"
+            data-rule-id="${m.id}"
+            title="Edit rule"
+            data-bs-toggle="tooltip"
+          >
+            <i class="bi bi-pencil-square" style="font-size: 0.75rem;"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger p-1 delete-rule-btn"
+            data-rule-id="${m.id}"
+            title="Delete rule"
+            data-bs-toggle="tooltip"
+          >
+            <i class="bi bi-trash" style="font-size: 0.75rem;"></i>
+          </button>
+        </div>
       </summary>
       <div class="card-body">
         <div class="mb-2"><div class="text-body">${m.body}</div></div>
@@ -153,5 +173,48 @@ function learningEditCard(l, ruleLookup) {
         </div>
       </div>
     </details>
+  `;
+}
+
+export function editRuleModal(rule) {
+  return html`
+    <div class="modal fade" id="editRuleModal" tabindex="-1" aria-labelledby="editRuleModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="editRuleModalLabel">Edit Rule</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editRuleForm">
+              <div class="mb-3">
+                <label for="editRuleTitle" class="form-label">Title</label>
+                <input type="text" class="form-control" id="editRuleTitle" value="${rule?.title || ""}" required />
+              </div>
+              <div class="mb-3">
+                <label for="editRuleBody" class="form-label">Body</label>
+                <textarea class="form-control" id="editRuleBody" rows="4" required>${rule?.body || ""}</textarea>
+              </div>
+              <div class="mb-3">
+                <label for="editRuleRationale" class="form-label">Rationale</label>
+                <textarea class="form-control" id="editRuleRationale" rows="3">${rule?.rationale || ""}</textarea>
+              </div>
+              <div class="mb-3">
+                <label for="editRulePriority" class="form-label">Priority</label>
+                <select class="form-select" id="editRulePriority" required>
+                  <option value="low" ?selected=${rule?.priority === "low"}>Low</option>
+                  <option value="medium" ?selected=${rule?.priority === "medium"}>Medium</option>
+                  <option value="high" ?selected=${rule?.priority === "high"}>High</option>
+                </select>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="saveRuleBtn">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
