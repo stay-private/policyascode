@@ -4,27 +4,71 @@ import { parse } from "https://cdn.jsdelivr.net/npm/partial-json@0.1/+esm";
 import { openaiConfig } from "https://cdn.jsdelivr.net/npm/bootstrap-llm-provider@1";
 import { bootstrapAlert } from "https://cdn.jsdelivr.net/npm/bootstrap-alert@1";
 import saveform from "https://cdn.jsdelivr.net/npm/saveform@1.2";
-import hljs from "https://cdn.jsdelivr.net/npm/highlight.js@11/+esm";
+import { memoryCard, learningCard } from "./components.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 
 const BASE_URLS = [
   "https://api.openai.com/v1",
-  "https://openrouter.ai/api/v1",
   "https://aipipe.org/openai/v1",
-  "https://aipipe.org/openrouter/v1",
   "https://llmfoundry.straivedemo.com/openai/v1",
   "https://llmfoundry.straive.com/openai/v1",
-  "https://llmfoundry.straivedemo.com/openrouter/v1",
-  "https://llmfoundry.straive.com/openrouter/v1",
 ];
 
 // State
 const state = {
   memIndex: 0,
-  memories: [],
-  learnings: [],
+  memories: [], // { id, type, title, body, priority, rationale, sources: [{quote, file}] }
+  learnings: [], // { file, memories: [...] } or { edits: [...] }
 };
+
+// Global memory lookup for efficient access by ID
+let memoryLookup = {};
+
+// Update memoryLookup when state.memories changes. Retain all memories for merge/delete reference.
+function updateMemoryLookup() {
+  state.memories.forEach((memory) => (memoryLookup[memory.id] = memory));
+}
+
+// Fetch configuration
+const { schemas } = await fetch("./config.json").then((r) => r.json());
+
+// Save state to localStorage
+function saveState() {
+  try {
+    localStorage.setItem("memlearn", JSON.stringify(state));
+  } catch (e) {
+    console.warn("Failed to save state to localStorage:", e);
+    bootstrapAlert({ title: "Could not save state", body: e, color: "warning" });
+  }
+}
+
+// Load state from localStorage
+function loadState() {
+  try {
+    const saved = localStorage.getItem("memlearn");
+    if (saved) {
+      const parsedState = JSON.parse(saved);
+      Object.assign(state, parsedState);
+      updateMemoryLookup();
+      // Redraw with loaded state
+      redraw({});
+    }
+  } catch (e) {
+    console.warn("Failed to load state from localStorage:", e);
+    bootstrapAlert({ title: "Could not load state", body: e, color: "warning" });
+  }
+}
+
+// Clear state and localStorage
+function clearState() {
+  state.memIndex = 0;
+  state.memories = [];
+  state.learnings = [];
+  memoryLookup = {};
+  localStorage.removeItem("memlearn");
+  redraw({});
+}
 
 buttonClick($("#btn-ingest"), async () => {
   for (let file of $("#file-input").files) {
@@ -47,11 +91,13 @@ buttonClick($("#btn-ingest"), async () => {
         memory.id = `mem-${state.memIndex + i}`;
         for (const source of memory.sources ?? []) source.file = file.name;
       });
-      redraw({ memories, edits: memories });
+      redraw({ memories, file: file.name });
     }
     state.memories.push(...memories);
-    state.learnings.push(...memories);
+    updateMemoryLookup(); // Update the global lookup
+    state.learnings.push({ file: file.name, memories });
     state.memIndex += memories.length;
+    saveState(); // Persist state changes
   }
 });
 
@@ -71,6 +117,47 @@ async function consolidate() {
     edits = parse(content)?.edits ?? [];
     redraw({ edits });
   }
+
+  // Apply the edits to the state
+  if (edits && edits.length > 0) {
+    // Collect all IDs to be deleted (from both delete and merge operations)
+    const deletes = new Set();
+
+    edits.forEach((edit) => {
+      if (edit.edit === "delete" || edit.edit === "merge") edit.ids.forEach((id) => deletes.add(id));
+    });
+
+    // Remove memories that are being deleted or merged
+    state.memories = state.memories.filter((memory) => !deletes.has(memory.id));
+
+    // Add new merged memories
+    edits.forEach((edit) => {
+      if (edit.edit === "merge") {
+        // Concatenate sources from all memories being merged
+        const mergedSources = [];
+        edit.ids.forEach((id) => {
+          if (memoryLookup[id] && memoryLookup[id].sources) mergedSources.push(...memoryLookup[id].sources);
+        });
+
+        const newMemory = {
+          id: `mem-${state.memIndex++}`,
+          type: edit.type,
+          title: edit.title,
+          body: edit.body,
+          priority: edit.priority,
+          rationale: edit.rationale,
+          sources: mergedSources,
+        };
+        state.memories.push(newMemory);
+      }
+    });
+
+    updateMemoryLookup();
+    redraw({ edits });
+    saveState(); // Persist state changes
+  }
+  state.learnings.push(edits);
+  saveState(); // Persist learning changes
 }
 
 async function* streamOpenAI(body) {
@@ -97,43 +184,18 @@ function fileToDataURL(f) {
   });
 }
 
-function redraw({ memories, edits }) {
-  render([...state.memories, ...(memories || [])].reverse().map(memoryCard), $("#memory-list"));
-  render([...state.learnings, ...(edits || [])].reverse().map(learningCard), $("#learning-list"));
-}
+function redraw({ memories, edits, file }) {
+  const mem = [...state.memories, ...(memories || [])].reverse();
+  render(mem.map(memoryCard), $("#memory-list"));
+  $("#memory-count").textContent = mem.length;
 
-function memoryCard(m) {
-  const isCode = m.type === "code";
-  const opts = { language: "javascript" };
-  const bodyHtml = isCode
-    ? html`<pre class="hljs"><code class="language-javascript">${hljs.highlight(m.body || "", opts).value}</code></pre>`
-    : html`<div class="text-body">${m.body}</div>`;
-
-  return html`
-    <details class="mb-3 card">
-      <summary class="card-header d-flex justify-content-between align-items-start" style="cursor: pointer;">
-        <strong>${m.title}</strong>
-        <span class="badge priority-${m.priority} me-2 text-uppercase">${m.priority}</span>
-      </summary>
-      <div class="card-body">
-        <div class="mb-2">${bodyHtml}</div>
-        <div class="mb-2"><strong>Type:</strong> ${m.type}</div>
-        <div class="mb-2"><strong>Rationale:</strong> ${m.rationale || ""}</div>
-        <div class="mb-2">
-          <strong>Sources:</strong>
-          <ul class="small m-0">
-            ${(m.sources || []).map(
-              (s) => html`<li>"${s.quote}" <span class="text-muted">— ${s.file || s.filename || ""}</span></li>`,
-            )}
-          </ul>
-        </div>
-      </div>
-    </details>
-  `;
-}
-
-function learningCard(m) {
-  return m.type ? memoryCard(m) : JSON.stringify(m);
+  const learnings = [...state.learnings];
+  if (file) learnings.push({ file, memories });
+  if (edits) learnings.push({ edits });
+  render(
+    learnings.reverse().map((l) => learningCard(l, memoryLookup)),
+    $("#learning-list"),
+  );
 }
 
 // When action buttons are clicked, disable, append a spinner, call handler, then re-enable and remove spinner
@@ -153,8 +215,15 @@ function buttonClick(btn, handler) {
 // Configure OpenAI
 $("#openai-config-btn").addEventListener("click", () => openaiConfig({ defaultBaseUrls: BASE_URLS, show: true }));
 
+// Clear memories button
+$("#clear-storage-btn").addEventListener("click", () => {
+  if (confirm("Are you sure you want to clear all memories? This action cannot be undone.")) {
+    clearState();
+  }
+});
+
 // Persist inputs
 saveform("#memlearn-settings", { exclude: '[type="file"]' });
 
-// Fetch configuration
-const { schemas } = await fetch("./config.json").then((r) => r.json());
+// Load saved state on initialization
+loadState();

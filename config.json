@@ -8,19 +8,10 @@
           "items": {
             "type": "object",
             "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["code", "llm"]
-              },
-              "title": {
-                "type": "string",
-                "description": "2-8 word summary of body"
-              },
+              "type": { "type": "string", "enum": ["code", "llm"] },
+              "title": { "type": "string", "description": "2-8 word summary of body" },
               "body": { "type": "string" },
-              "priority": {
-                "type": "string",
-                "enum": ["low", "medium", "high"]
-              },
+              "priority": { "type": "string", "enum": ["low", "medium", "high"] },
               "rationale": { "type": "string" },
               "sources": {
                 "type": "array",
@@ -51,11 +42,7 @@
                 "type": "object",
                 "properties": {
                   "edit": { "type": "string", "const": "delete" },
-                  "ids": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "minItems": 1
-                  },
+                  "ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
                   "reason": { "type": "string" }
                 },
                 "required": ["edit", "ids", "reason"],
@@ -65,26 +52,16 @@
                 "type": "object",
                 "properties": {
                   "edit": { "type": "string", "const": "merge" },
-                  "ids": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "minItems": 2
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["code", "llm"]
-                  },
-                  "title": {
-                    "type": "string",
-                    "description": "2-8 word summary of body"
-                  },
-                  "body": { "type": "string" },
+                  "ids": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+                  "type": { "type": "string", "enum": ["code", "llm"] },
+                  "title": { "type": "string", "description": "2-8 word summary of body" },
+                  "body": { "type": "string", "description": "Merge .body of merged items" },
                   "priority": {
                     "type": "string",
                     "enum": ["low", "medium", "high"]
                   },
-                  "rationale": { "type": "string" },
-                  "reason": { "type": "string" }
+                  "rationale": { "type": "string", "description": "Merge .rationale of merged items" },
+                  "reason": { "type": "string", "description": "Explain reason for merging" }
                 },
                 "required": ["edit", "ids", "type", "title", "body", "priority", "rationale", "reason"],
                 "additionalProperties": false
