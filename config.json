@@ -1,4 +1,38 @@
 {
+  "demos": [
+    {
+      "title": "European Financial Promotion Guidance",
+      "icon": "bi-megaphone",
+      "description": "Validate social posts, landing pages, and emails against FCA Consumer Duty and social-media promotion rules; surface missing or unfair disclosures.",
+      "extractionPrompt": "Extract atomic, testable rules from ONE policy document.\nKeep each rule minimal.\nWrite for an LLM to apply it unambiguously.\nAlways include concise rationale and quotes.\n\nContext additions (promotions):\n- Scope this to FCA FG24/1 (social-media promotions) and FG22/5 (Consumer Duty).\n- Target artifacts: short-form social posts, paid ads, landing pages, emails/SMS, in-app UI copy.\n- Capture MUST/SHOULD strength, medium constraints (character limits), and prohibited/required phrases.\n- For each rule, add: category {Disclosure|Prominence|Targeting|Fair-balance|Record-keeping}, medium applicability, severity {High|Med|Low}, testable threshold (e.g., warning ≥ claim prominence), and example pass/fail.\n- Include precise section/para references and short quotes for traceability.",
+      "consolidationPrompt": "Suggest deletes and merges to remove duplicates and generalize rules where appropriate.\n\nConsolidation additions (promotions):\n- Collapse medium-specific variants into one parent rule with medium flags.\n- Prefer the strongest applicable obligation (MUST over SHOULD) while preserving all citations.\n- Merge near-identical disclosure/prominence rules; standardize thresholds and wording.\n- Remove rules that restate outcomes without actionable tests; keep those with measurable checks.",
+      "policies": [
+        "docs/fg24-1.1-introduction.pdf",
+        "docs/fg24-1.2-promotions.pdf",
+        "docs/fg24-1.3-marketing.pdf",
+        "docs/fg24-1.4-influencers.pdf"
+      ]
+    },
+    {
+      "title": "AI Model Governance Checklist",
+      "icon": "bi-cpu",
+      "description": "Validate model cards, risk assessments, and vendor AI proposals against EU AI Act, PRA SS1/23, and NIST AI RMF expectations.",
+      "extractionPrompt": "Extract atomic, testable rules from ONE policy document.\nKeep each rule minimal.\nWrite for an LLM to apply it unambiguously.\nAlways include concise rationale and quotes.\n\nContext additions (AI governance):\n- Source types: EU AI Act (deployer obligations), PRA SS1/23 (model risk), NIST AI RMF 1.0.\n- Target artifacts: model cards, validation reports, monitoring plans, change logs, vendor due-diligence responses.\n- For each rule, include: control family {Data governance|Intended use|Transparency|Human oversight|Monitoring|Security|Privacy|Third-party}, lifecycle phase {Design|Train|Validate|Deploy|Monitor}, risk tier, severity, and explicit evidence expected (e.g., eval metrics, bias tests, rollback plan).\n- Add clear pass/fail criteria (e.g., drift threshold defined and monitored ≥ monthly) with section/paragraph references.",
+      "consolidationPrompt": "Suggest deletes and merges to remove duplicates and generalize rules where appropriate.\n\nConsolidation additions (AI governance):\n- Merge semantically equivalent controls across frameworks into a canonical statement with cross-refs (EU AI Act ↔ PRA SS1/23 ↔ NIST AI RMF).\n- Prefer outcome-based wording plus a single measurable test; attach all source citations.\n- Deduplicate documentation-only rules by folding into their parent control’s evidence list.\n- Normalize severity and lifecycle tags; remove overlaps where monitoring or oversight duplicates exist.",
+      "policies": [
+        "docs/nist.ai.100-1.1.pdf",
+        "docs/nist.ai.100-1.2.pdf",
+        "docs/nist.ai.100-1.3.pdf"
+      ]
+    },
+    {
+      "title": "Operational Resilience (DORA) Readiness",
+      "icon": "bi-shield-check",
+      "description": "Validate incident runbooks, cloud SLAs, and resilience self-assessments against DORA and UK operational resilience expectations for ICT risk.",
+      "extractionPrompt": "Extract atomic, testable rules from ONE policy document.\nKeep each rule minimal.\nWrite for an LLM to apply it unambiguously.\nAlways include concise rationale and quotes.\n\nContext additions (OpRes/DORA):\n- Source types: EU DORA (ICT risk, incident reporting, TPRM), FCA PS21/3 & PRA SS1/21 (important business services, impact tolerances).\n- Target artifacts: self-assessments, incident classification/runbooks, outsourcing/MSA clauses, BCP/DR test evidence, SLA/OLA documents.\n- For each rule, add: domain {Important services|Impact tolerances|Incident mgmt|Testing|TPRM|Contracting}, evidence expected, regulator timeframe/thresholds, severity, and testable acceptance (e.g., regulator notification ≤ x hours with named role owner).\n- Include clause/Article references and short quotes for audit traceability.",
+      "consolidationPrompt": "Suggest deletes and merges to remove duplicates and generalize rules where appropriate.\n\nConsolidation additions (OpRes/DORA):\n- Merge UK OpRes and DORA rules where intent matches; keep time-bound thresholds as parameters.\n- Collapse repeated contract-clause checks (audit/access/exit/data location) into a single reusable contract control with sub-checks.\n- Remove narrative duplicates; keep the most measurable version and retain all citations.\n- Standardize domain tags and notification/time thresholds across rules."
+    }
+  ],
   "schemas": {
     "rules": {
       "type": "object",

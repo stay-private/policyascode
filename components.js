@@ -176,6 +176,52 @@ function learningEditCard(l, ruleLookup) {
   `;
 }
 
+export function demoCards(demos) {
+  return html`
+    <div class="row g-3 justify-content-center mb-4">
+      ${demos.map(
+        (demo, index) => html`
+          <div class="col-md-4 col-lg-3">
+            <div
+              class="card demo-card h-100"
+              data-demo-index="${index}"
+              style="cursor: pointer; transition: transform 0.2s ease;"
+            >
+              <div class="card-body text-center d-flex flex-column">
+                <div class="mb-3">
+                  <i class="${demo.icon}" style="font-size: 2.5rem; color: var(--bs-primary);"></i>
+                </div>
+                <h6 class="card-title h5 mb-2">${demo.title}</h6>
+                <p class="card-text text-muted mb-3">${demo.description}</p>
+                ${demo.policies && demo.policies.length > 0
+                  ? html`
+                      <div class="list-group small">
+                        ${demo.policies.map((url) => {
+                          const filename = url.split("/").pop() || url;
+                          return html`
+                            <a
+                              href="${url}"
+                              target="_blank"
+                              class="list-group-item text-start"
+                              onclick="event.stopPropagation();"
+                              title="Open ${filename} in new tab"
+                            >
+                              <i class="bi bi-file-earmark-text me-1"></i>${filename}
+                            </a>
+                          `;
+                        })}
+                      </div>
+                    `
+                  : ""}
+              </div>
+            </div>
+          </div>
+        `,
+      )}
+    </div>
+  `;
+}
+
 export function editRuleModal(rule) {
   return html`
     <div class="modal fade" id="editRuleModal" tabindex="-1" aria-labelledby="editRuleModalLabel" aria-hidden="true">

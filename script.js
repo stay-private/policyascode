@@ -4,7 +4,7 @@ import { parse } from "https://cdn.jsdelivr.net/npm/partial-json@0.1/+esm";
 import { openaiConfig } from "https://cdn.jsdelivr.net/npm/bootstrap-llm-provider@1";
 import { bootstrapAlert } from "https://cdn.jsdelivr.net/npm/bootstrap-alert@1";
 import saveform from "https://cdn.jsdelivr.net/npm/saveform@1.2";
-import { ruleCard, learningCard, editRuleModal } from "./components.js";
+import { ruleCard, learningCard, editRuleModal, demoCards } from "./components.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 function on(el, event, selector, handler) {
@@ -36,7 +36,7 @@ function updateRuleLookup() {
 }
 
 // Fetch configuration
-const { schemas } = await fetch("./config.json").then((r) => r.json());
+const { schemas, demos } = await fetch("./config.json").then((r) => r.json());
 
 // Save state to localStorage
 function saveState() {
@@ -76,35 +76,81 @@ function clearState() {
 }
 
 buttonClick($("#btn-ingest"), async () => {
+  // Process files first
   for (let file of $("#file-input").files) {
-    let content =
-      file.type === "application/pdf"
-        ? { type: "input_file", filename: file.name, file_data: await fileToDataURL(file) }
-        : { type: "input_text", text: `# ${file.name}\n\n${await file.text()}` };
-    const body = {
-      model: $("#model").value,
-      instructions: $("#policyascode-extraction").value,
-      input: [{ role: "user", content: [content] }],
-      text: { format: { type: "json_schema", strict: true, name: "rules", schema: schemas.rules } },
-      stream: true,
-    };
+    await processSource(file, file.name);
+  }
 
-    let rules;
-    for await (const { content } of streamOpenAI(body)) {
-      rules = parse(content)?.rules ?? [];
-      rules.forEach((rule, i) => {
-        rule.id = `rule-${state.ruleIndex + i}`;
-        for (const source of rule.sources ?? []) source.file = file.name;
+  // Process URLs
+  const urls = $("#url-input")
+    .value.split("\n")
+    .map((url) => url.trim())
+    .filter((url) => url);
+  for (let url of urls) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      const contentType = response.headers.get("content-type") || "";
+      const basename = url.split("/").pop() || url;
+
+      if (contentType.startsWith("application/pdf")) {
+        // Handle PDF
+        const blob = await response.blob();
+        await processSource(blob, basename, true);
+      } else if (contentType.startsWith("text/")) {
+        // Handle text
+        const text = await response.text();
+        const mockFile = { text: async () => text, name: basename };
+        await processSource(mockFile, basename);
+      } else {
+        bootstrapAlert({
+          title: "Unsupported file type",
+          body: `${basename}: ${contentType || "Unknown MIME type"}. Only text/* and PDF files are supported.`,
+          color: "warning",
+        });
+      }
+    } catch (error) {
+      bootstrapAlert({
+        title: "URL fetch failed",
+        body: `${url}: ${error.message}`,
+        color: "danger",
       });
-      redraw({ rules, file: file.name });
     }
-    state.rules.push(...rules);
-    updateRuleLookup(); // Update the global lookup
-    state.learnings.push({ file: file.name, rules });
-    state.ruleIndex += rules.length;
-    saveState(); // Persist state changes
   }
 });
+
+async function processSource(source, name, isPdfBlob = false) {
+  let content;
+  if (isPdfBlob || source.type === "application/pdf") {
+    content = { type: "input_file", filename: name, file_data: await blobToDataURL(source) };
+  } else {
+    content = { type: "input_text", text: `# ${name}\n\n${await source.text()}` };
+  }
+
+  const body = {
+    model: $("#model").value,
+    instructions: $("#policyascode-extraction").value,
+    input: [{ role: "user", content: [content] }],
+    text: { format: { type: "json_schema", strict: true, name: "rules", schema: schemas.rules } },
+    stream: true,
+  };
+
+  let rules;
+  for await (const { content } of streamOpenAI(body)) {
+    rules = parse(content)?.rules ?? [];
+    rules.forEach((rule, i) => {
+      rule.id = `rule-${state.ruleIndex + i}`;
+      for (const source of rule.sources ?? []) source.file = name;
+    });
+    redraw({ rules, file: name });
+  }
+  state.rules.push(...rules);
+  updateRuleLookup();
+  state.learnings.push({ file: name, rules });
+  state.ruleIndex += rules.length;
+  saveState();
+}
 
 buttonClick($("#btn-consolidate"), consolidate);
 
@@ -179,7 +225,7 @@ async function* streamOpenAI(body) {
   }
 }
 
-function fileToDataURL(f) {
+function blobToDataURL(f) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(r.result);
@@ -221,13 +267,11 @@ $("#openai-config-btn").addEventListener("click", () => openaiConfig({ defaultBa
 
 // Clear rules button
 $("#clear-storage-btn").addEventListener("click", () => {
-  if (confirm("Are you sure you want to clear all rules? This action cannot be undone.")) {
-    clearState();
-  }
+  if (confirm("Are you sure you want to clear all rules? This action cannot be undone.")) clearState();
 });
 
 // Persist inputs
-saveform("#policyascode-settings", { exclude: '[type="file"]' });
+saveform("#policyascode-settings", { exclude: '[type="file"], #url-input' });
 
 // Delete rule functionality
 on(document, "click", ".delete-rule-btn", (e) => {
@@ -258,7 +302,7 @@ on(document, "click", ".edit-rule-btn", (e) => {
 });
 
 // Save edited rule
-on(document, "click", "#saveRuleBtn", (e) => {
+on(document, "click", "#saveRuleBtn", () => {
   const form = $("#editRuleForm");
   if (form.checkValidity() && currentEditingRuleId) {
     const rule = ruleLookup[currentEditingRuleId];
@@ -284,6 +328,31 @@ on(document, "click", "#saveRuleBtn", (e) => {
     currentEditingRuleId = null;
   } else {
     form.classList.add("was-validated");
+  }
+});
+
+// Render demo cards
+render(demoCards(demos), $("#demo-cards"));
+
+// Handle demo card clicks
+on(document, "click", ".demo-card", (e) => {
+  const demoIndex = e.target.closest(".demo-card").dataset.demoIndex;
+  const demo = demos[demoIndex];
+
+  if (demo) {
+    // Update prompts
+    $("#policyascode-extraction").value = demo.extractionPrompt;
+    $("#policyascode-consolidation").value = demo.consolidationPrompt;
+
+    // Clear file input and load policies into textarea
+    $("#file-input").value = "";
+    $("#url-input").value = (demo.policies || []).join("\n");
+
+    bootstrapAlert({
+      title: "Demo loaded",
+      body: `${demo.title} prompts and URLs have been loaded. <strong>Click "Ingest" to proceed.</strong>`,
+      color: "info",
+    });
   }
 });
 

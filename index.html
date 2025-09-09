@@ -31,6 +31,11 @@
       color: var(--bs-dark);
     }
 
+    .demo-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
   </style>
 </head>
 
@@ -62,6 +67,8 @@
     <div class="mx-auto my-3 narrative">
       <p>Upload .txt, .md or .pdf files. Policy as Code streams LLM responses to extract atomic, testable rules from each policy document, and consolidates them when the list grows. Everything runs client‑side and persists to localStorage.</p>
     </div>
+
+    <div id="demo-cards" class="my-4"></div>
   </div>
 
   <div class="container">
@@ -111,11 +118,17 @@ Always include concise rationale and quotes.</textarea>
         </div>
       </details>
 
-      <div class="my-4 d-flex flex-wrap gap-2 align-items-center justify-content-center">
-        <input id="file-input" class="form-control w-auto flex-grow-1" type="file" accept=".txt,.md,.pdf" multiple>
-        <button id="btn-ingest" class="btn btn-primary" type="button">Ingest</button>
-        <button id="btn-consolidate" class="btn btn-outline-secondary" type="button">Consolidate</button>
+      <div class="my-4">
+        <div class="text-center mb-3">
+          <textarea id="url-input" class="form-control font-monospace" rows="3" placeholder="Policy document URLs (one per line)"></textarea>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
+          <input id="file-input" class="form-control w-auto flex-grow-1" type="file" accept=".txt,.md,.pdf" multiple>
+          <button id="btn-ingest" class="btn btn-primary" type="button">Ingest</button>
+          <button id="btn-consolidate" class="btn btn-outline-secondary" type="button">Consolidate</button>
+        </div>
       </div>
+
     </form>
 
     <div class="row g-4">
