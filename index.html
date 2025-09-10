@@ -115,10 +115,21 @@ Always include concise rationale and quotes.</textarea>
             <label for="policyascode-consolidation" class="form-label fw-bold">Consolidation Prompt</label>
             <textarea id="policyascode-consolidation" class="form-control font-monospace" rows="5">Suggest deletes and merges to remove duplicates and generalize rules where appropriate.</textarea>
           </div>
+          <div class="mt-3">
+            <label for="policyascode-validation" class="form-label fw-bold">Validation Prompt</label>
+            <textarea id="policyascode-validation" class="form-control font-monospace" rows="6">Validate the provided document against each rule. For each rule, determine if the document passes, fails, or if it's unknown/unclear.
+
+Return a validation result for each rule with:
+- id: the rule identifier
+- result: "pass" if the document complies, "fail" if it violates the rule, "unknown" if unclear or not applicable
+- reason: brief explanation of why it passes, fails, or is unknown
+
+Be specific and cite relevant parts of the document in your reasoning.</textarea>
+          </div>
         </div>
       </details>
 
-      <div class="my-4">
+      <div class="my-4" id="policies">
         <div class="text-center mb-3">
           <textarea id="url-input" class="form-control font-monospace" rows="3" placeholder="Policy document URLs (one per line)"></textarea>
         </div>
@@ -151,6 +162,33 @@ Always include concise rationale and quotes.</textarea>
       </div>
     </div>
 
+  </div>
+
+  <div class="container">
+    <div class="narrative mx-auto my-4">
+      <h4 class="text-center mb-3">Validate Documents</h4>
+      <p class="text-center text-muted small mb-4">Upload or specify documents to validate against the extracted rules</p>
+
+      <div id="validate">
+        <div class="text-center mb-3">
+          <textarea id="validate-url-input" class="form-control font-monospace" rows="3" placeholder="Document URLs to validate (one per line)"></textarea>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
+          <input id="validate-file-input" class="form-control w-auto flex-grow-1" type="file" accept=".txt,.md,.pdf" multiple>
+          <button id="btn-validate" class="btn btn-success" type="button">Validate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="validations-table" class="container-fluid mt-4"></div>
+  <div class="container-fluid mt-2" id="validation-legend">
+    <div class="small text-muted">
+      <span class="badge text-bg-success me-1">pass</span> Compliant
+      <span class="badge text-bg-danger ms-3 me-1">fail</span> Violates rule
+      <span class="badge text-bg-secondary ms-3 me-1">n/a</span> Rule not applicable
+      <span class="badge text-bg-warning ms-3 me-1">unknown</span> Unsure; needs human review
+    </div>
   </div>
 
   <div id="modal-container"></div>

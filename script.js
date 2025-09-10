@@ -4,13 +4,25 @@ import { parse } from "https://cdn.jsdelivr.net/npm/partial-json@0.1/+esm";
 import { openaiConfig } from "https://cdn.jsdelivr.net/npm/bootstrap-llm-provider@1";
 import { bootstrapAlert } from "https://cdn.jsdelivr.net/npm/bootstrap-alert@1";
 import saveform from "https://cdn.jsdelivr.net/npm/saveform@1.2";
-import { ruleCard, learningCard, editRuleModal, demoCards } from "./components.js";
+import { ruleCard, learningCard, editRuleModal, demoCards, validationTable } from "./components.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 function on(el, event, selector, handler) {
   el.addEventListener(event, (e) => {
     if (e.target.closest(selector)) handler(e);
   });
+}
+
+// Error wrapping helper
+function safe(title, fn) {
+  return function () {
+    try {
+      return fn.apply(this, arguments);
+    } catch (e) {
+      console.error(title, e);
+      bootstrapAlert({ title, body: e, color: "error" });
+    }
+  };
 }
 
 const BASE_URLS = [
@@ -25,61 +37,71 @@ const state = {
   ruleIndex: 0,
   rules: [], // { id, type, title, body, priority, rationale, sources: [{quote, file}] }
   learnings: [], // { file, rules: [...] } or { edits: [...] }
+  validations: [], // { file, id, result, reason }
+  fileOrder: [], // stable column order for validations table
 };
 
 // Global rule lookup for efficient access by ID
 let ruleLookup = {};
+
+// Global validation lookup for efficient access: rule_id -> file -> validation
+let validationLookup = {};
+
+// Track files currently being processed for validation
+let processingFiles = new Set();
 
 // Update ruleLookup when state.rules changes. Retain all rules for merge/delete reference.
 function updateRuleLookup() {
   state.rules.forEach((rule) => (ruleLookup[rule.id] = rule));
 }
 
+// Update validationLookup when state.validations changes
+function updateValidationLookup() {
+  validationLookup = {};
+  state.validations.forEach((v) => {
+    if (!validationLookup[v.id]) validationLookup[v.id] = {};
+    validationLookup[v.id][v.file] = v;
+  });
+}
+
 // Fetch configuration
 const { schemas, demos } = await fetch("./config.json").then((r) => r.json());
 
 // Save state to localStorage
-function saveState() {
-  try {
-    localStorage.setItem("policyascode", JSON.stringify(state));
-  } catch (e) {
-    console.warn("Failed to save state to localStorage:", e);
-    bootstrapAlert({ title: "Could not save state", body: e, color: "warning" });
-  }
-}
+const saveState = safe("Could not save state", () => {
+  localStorage.setItem("policyascode", JSON.stringify(state));
+});
 
 // Load state from localStorage (migrate from older MemLearn if present)
-function loadState() {
-  try {
-    const saved = localStorage.getItem("policyascode");
-    if (saved) {
-      const parsedState = JSON.parse(saved);
-      Object.assign(state, parsedState);
-      updateRuleLookup();
-      // Redraw with loaded state
-      redraw({});
-    }
-  } catch (e) {
-    console.warn("Failed to load state from localStorage:", e);
-    bootstrapAlert({ title: "Could not load state", body: e, color: "warning" });
+const loadState = safe("Could not load state", () => {
+  const saved = localStorage.getItem("policyascode");
+  if (saved) {
+    const parsedState = JSON.parse(saved);
+    Object.assign(state, parsedState);
+    updateRuleLookup();
+    updateValidationLookup();
+    redraw({});
   }
-}
+});
 
 // Clear state and localStorage
 function clearState() {
   state.ruleIndex = 0;
   state.rules = [];
   state.learnings = [];
+  state.validations = [];
+  state.fileOrder = [];
   ruleLookup = {};
+  validationLookup = {};
+  processingFiles.clear();
   localStorage.removeItem("policyascode");
   redraw({});
+  redrawValidations();
 }
 
 buttonClick($("#btn-ingest"), async () => {
   // Process files first
-  for (let file of $("#file-input").files) {
-    await processSource(file, file.name);
-  }
+  for (let file of $("#file-input").files) await processSource(file, file.name);
 
   // Process URLs
   const urls = $("#url-input")
@@ -153,6 +175,106 @@ async function processSource(source, name, isPdfBlob = false) {
 }
 
 buttonClick($("#btn-consolidate"), consolidate);
+
+buttonClick($("#btn-validate"), async () => {
+  if (state.rules.length === 0) {
+    bootstrapAlert({
+      title: "No rules to validate against",
+      body: "Please ingest policy documents first to extract rules before validating.",
+      color: "warning",
+    });
+    return;
+  }
+
+  // Process validation files first
+  for (let file of $("#validate-file-input").files) {
+    await processValidation(file, file.name);
+  }
+
+  // Process validation URLs
+  const urls = $("#validate-url-input")
+    .value.split("\n")
+    .map((url) => url.trim())
+    .filter((url) => url);
+  for (let url of urls) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      const contentType = response.headers.get("content-type") || "";
+      const basename = url.split("/").pop() || url;
+
+      if (contentType.startsWith("application/pdf")) {
+        const blob = await response.blob();
+        await processValidation(blob, basename, true);
+      } else if (contentType.startsWith("text/")) {
+        const text = await response.text();
+        const mockFile = { text: async () => text, name: basename };
+        await processValidation(mockFile, basename);
+      } else {
+        bootstrapAlert({
+          title: "Unsupported file type",
+          body: `${basename}: ${contentType || "Unknown MIME type"}. Only text/* and PDF files are supported.`,
+          color: "warning",
+        });
+      }
+    } catch (error) {
+      bootstrapAlert({
+        title: "URL fetch failed",
+        body: `${url}: ${error.message}`,
+        color: "danger",
+      });
+    }
+  }
+});
+
+async function processValidation(source, name, isPdfBlob = false) {
+  // Add file to processing set and render immediately to show column
+  processingFiles.add(name);
+  redrawValidations();
+
+  try {
+    let content;
+    if (isPdfBlob || source.type === "application/pdf") {
+      content = { type: "input_file", filename: name, file_data: await blobToDataURL(source) };
+    } else {
+      content = { type: "input_text", text: `# ${name}\n\n${await source.text()}` };
+    }
+
+    const body = {
+      model: $("#model").value,
+      instructions:
+        $("#policyascode-validation").value + "\n\nRules to validate against:\n" + JSON.stringify(state.rules),
+      input: [{ role: "user", content: [content] }],
+      text: { format: { type: "json_schema", strict: true, name: "validation", schema: schemas.validation } },
+      stream: true,
+    };
+
+    let validations;
+    for await (const { content } of streamOpenAI(body)) {
+      validations = parse(content)?.validations ?? [];
+      validations.forEach((validation) => (validation.file = name));
+
+      // Update streaming validations in global lookup
+      validations.forEach((v) => {
+        if (!validationLookup[v.id]) validationLookup[v.id] = {};
+        validationLookup[v.id][v.file] = v;
+      });
+
+      redrawValidations();
+    }
+
+    // Remove existing validations for this file and add new ones
+    state.validations = state.validations.filter((v) => v.file !== name);
+    state.validations.push(...validations);
+    updateValidationLookup();
+    saveState();
+  } finally {
+    // Remove from processing set when done
+    processingFiles.delete(name);
+    redrawValidations();
+  }
+}
 
 async function consolidate() {
   const body = {
@@ -248,6 +370,41 @@ function redraw({ rules, edits, file }) {
   );
 }
 
+function redrawValidations() {
+  // Get unique validation files from state and any files currently being processed
+  const existingFiles = [...new Set(state.validations.map((v) => v.file))];
+  const processing = Array.from(processingFiles);
+  const presentSet = new Set([...existingFiles, ...processing]);
+
+  // Maintain a stable column order across redraws
+  let changed = false;
+  if (state.fileOrder.length === 0 && existingFiles.length) {
+    state.fileOrder = [...existingFiles];
+    changed = true;
+  }
+  for (const f of existingFiles)
+    if (!state.fileOrder.includes(f)) {
+      state.fileOrder.push(f);
+      changed = true;
+    }
+  for (const f of processing)
+    if (!state.fileOrder.includes(f)) {
+      state.fileOrder.push(f);
+      changed = true;
+    }
+
+  // Only show files currently present (validated or in-progress), preserving first-seen order
+  const files = state.fileOrder.filter((f) => presentSet.has(f));
+  if (changed) saveState();
+
+  if (state.rules.length === 0 && files.length === 0) {
+    render(html``, $("#validations-table"));
+    return;
+  }
+
+  render(validationTable(files, state, validationLookup), $("#validations-table"));
+}
+
 // When action buttons are clicked, disable, append a spinner, call handler, then re-enable and remove spinner
 const loading = html`<div class="spinner-border spinner-border-sm mx-2" role="status"></div>`;
 function buttonClick(btn, handler) {
@@ -271,7 +428,7 @@ $("#clear-storage-btn").addEventListener("click", () => {
 });
 
 // Persist inputs
-saveform("#policyascode-settings", { exclude: '[type="file"], #url-input' });
+saveform("#policyascode-settings", { exclude: '[type="file"], #url-input, #validate-url-input' });
 
 // Delete rule functionality
 on(document, "click", ".delete-rule-btn", (e) => {
@@ -343,10 +500,15 @@ on(document, "click", ".demo-card", (e) => {
     // Update prompts
     $("#policyascode-extraction").value = demo.extractionPrompt;
     $("#policyascode-consolidation").value = demo.consolidationPrompt;
+    $("#policyascode-validation").value = demo.validationPrompt || $("#policyascode-validation").value;
 
-    // Clear file input and load policies into textarea
+    // Clear file inputs and load policies into textarea
     $("#file-input").value = "";
     $("#url-input").value = (demo.policies || []).join("\n");
+
+    // Clear validation inputs and load validate URLs if they exist
+    $("#validate-file-input").value = "";
+    $("#validate-url-input").value = (demo.validate || []).join("\n");
 
     bootstrapAlert({
       title: "Demo loaded",
@@ -358,3 +520,4 @@ on(document, "click", ".demo-card", (e) => {
 
 // Load saved state on initialization
 loadState();
+redrawValidations();

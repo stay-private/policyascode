@@ -125,14 +125,14 @@ function learningEditCard(l, ruleLookup) {
               <div class="accordion-item">
                 <h2 class="accordion-header" id="${headingId}">
                   <button
-                    class="accordion-button collapsed edit-${edit.edit}"
+                    class="accordion-button collapsed text-uppercase edit-${edit.edit}"
                     type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#${collapseId}"
                     aria-expanded="false"
                     aria-controls="${collapseId}"
                   >
-                    ${(edit.edit ?? "").toUpperCase()} ${edit.ids?.length ?? 0} items
+                    ${edit.edit ?? ""} ${edit.ids?.length ?? 0} items
                   </button>
                 </h2>
                 <div
@@ -259,6 +259,57 @@ export function editRuleModal(rule) {
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="button" class="btn btn-primary" id="saveRuleBtn">Save Changes</button>
           </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function validationTable(files, state, validationLookup) {
+  return html`
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Validation Results</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="text-start" style="min-width: 200px;">Rule</th>
+                ${files.map((file) => html`<th class="text-center">${file}</th>`)}
+              </tr>
+            </thead>
+            <tbody>
+              ${state.rules.map(
+                (rule) => html`
+                  <tr>
+                    <td class="fw-bold text-start align-top">${rule.title}</td>
+                    ${files.map((file) => {
+                      const validation = validationLookup[rule.id]?.[file];
+                      if (!validation) return html`<td class="text-center">—</td>`;
+
+                      const bgClass =
+                        validation.result === "pass"
+                          ? "table-success"
+                          : validation.result === "fail"
+                            ? "table-danger"
+                            : validation.result === "n/a"
+                              ? "table-secondary"
+                              : "table-warning";
+
+                      return html`
+                        <td class="${bgClass} text-center align-top" style="max-width: 200px;">
+                          <div class="fw-bold text-uppercase">${validation.result}</div>
+                          <div class="small text-wrap">${validation.reason}</div>
+                        </td>
+                      `;
+                    })}
+                  </tr>
+                `,
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
