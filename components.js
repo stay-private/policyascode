@@ -193,23 +193,96 @@ export function demoCards(demos) {
                 </div>
                 <h6 class="card-title h5 mb-2">${demo.title}</h6>
                 <p class="card-text text-muted mb-3">${demo.description}</p>
-                ${demo.policies && demo.policies.length > 0
+                ${(demo.policies && demo.policies.length > 0) || (demo.validate && demo.validate.length > 0)
                   ? html`
-                      <div class="list-group small">
-                        ${demo.policies.map((url) => {
-                          const filename = url.split("/").pop() || url;
-                          return html`
-                            <a
-                              href="${url}"
-                              target="_blank"
-                              class="list-group-item text-start"
-                              onclick="event.stopPropagation();"
-                              title="Open ${filename} in new tab"
-                            >
-                              <i class="bi bi-file-earmark-text me-1"></i>${filename}
-                            </a>
-                          `;
-                        })}
+                      <div class="accordion w-100 text-start mt-auto" id="demo-acc-${index}">
+                        ${demo.policies && demo.policies.length > 0
+                          ? html`
+                              <div class="accordion-item">
+                                <h2 class="accordion-header" id="demo-acc-${index}-heading-policies">
+                                  <button
+                                    class="accordion-button collapsed"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#demo-acc-${index}-policies"
+                                    aria-expanded="false"
+                                    aria-controls="demo-acc-${index}-policies"
+                                    onclick="event.stopPropagation();"
+                                  >
+                                    Policies (source of rules)
+                                  </button>
+                                </h2>
+                                <div
+                                  id="demo-acc-${index}-policies"
+                                  class="accordion-collapse collapse"
+                                  aria-labelledby="demo-acc-${index}-heading-policies"
+                                  data-bs-parent="#demo-acc-${index}"
+                                >
+                                  <div class="accordion-body p-0">
+                                    <div class="list-group small">
+                                      ${demo.policies.map((url) => {
+                                        const filename = url.split("/").pop() || url;
+                                        return html`
+                                          <a
+                                            href="${url}"
+                                            target="_blank"
+                                            class="list-group-item text-start"
+                                            onclick="event.stopPropagation();"
+                                            title="Open ${filename} in new tab"
+                                          >
+                                            <i class="bi bi-file-earmark-text me-1"></i>${filename}
+                                          </a>`;
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            `
+                          : ""}
+
+                        ${demo.validate && demo.validate.length > 0
+                          ? html`
+                              <div class="accordion-item">
+                                <h2 class="accordion-header" id="demo-acc-${index}-heading-validate">
+                                  <button
+                                    class="accordion-button collapsed"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#demo-acc-${index}-validate"
+                                    aria-expanded="false"
+                                    aria-controls="demo-acc-${index}-validate"
+                                    onclick="event.stopPropagation();"
+                                  >
+                                    Documents (to validate)
+                                  </button>
+                                </h2>
+                                <div
+                                  id="demo-acc-${index}-validate"
+                                  class="accordion-collapse collapse"
+                                  aria-labelledby="demo-acc-${index}-heading-validate"
+                                  data-bs-parent="#demo-acc-${index}"
+                                >
+                                  <div class="accordion-body p-0">
+                                    <div class="list-group small">
+                                      ${demo.validate.map((url) => {
+                                        const filename = url.split("/").pop() || url;
+                                        return html`
+                                          <a
+                                            href="${url}"
+                                            target="_blank"
+                                            class="list-group-item text-start"
+                                            onclick="event.stopPropagation();"
+                                            title="Open ${filename} in new tab"
+                                          >
+                                            <i class="bi bi-file-earmark-text me-1"></i>${filename}
+                                          </a>`;
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            `
+                          : ""}
                       </div>
                     `
                   : ""}
